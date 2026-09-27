@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { UploadCloud, Camera, Image as ImageIcon, Sparkles, AlertCircle, X } from 'lucide-react';
-import { DEMO_FIXTURES } from '../data/demoFixtures';
+import React, { useRef, useState } from 'react';
+import { UploadCloud, Camera, Image as ImageIcon, Sparkles, X, AlertCircle } from 'lucide-react';
 import { AnalysisResult } from '../services/types';
+import { DEMO_FIXTURES } from '../data/demoFixtures';
 
 interface UploadSectionProps {
   onImageSelected: (file: File) => void;
@@ -15,7 +15,7 @@ interface UploadSectionProps {
 }
 
 const MAX_FILE_SIZE_MB = 25;
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 export const UploadSection: React.FC<UploadSectionProps> = ({
   onImageSelected,
@@ -25,8 +25,8 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
   isAnalyzing,
   isDemoMode,
 }) => {
-  const [dragActive, setDragActive] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState<boolean>(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(DEMO_FIXTURES[0].image_url);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -36,13 +36,11 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
   const validateAndProcessFile = (file: File) => {
     setValidationError(null);
 
-    // Validate type
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      setValidationError(`Unsupported file type (${file.type || 'unknown'}). Please upload a JPEG, PNG, or WEBP image.`);
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      setValidationError(`Unsupported file type (${file.type || 'unknown'}). Please upload a JPEG, PNG, or WEBP packaging photo.`);
       return;
     }
 
-    // Validate size
     if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
       setValidationError(`File size (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds the maximum allowed limit of ${MAX_FILE_SIZE_MB} MB.`);
       return;
@@ -96,6 +94,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
           {DEMO_FIXTURES.map((fixture) => (
             <button
               key={fixture.analysis_id}
+              type="button"
               onClick={() => {
                 setValidationError(null);
                 setPreviewUrl(fixture.image_url);
@@ -121,7 +120,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
             <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
             <span>{validationError}</span>
           </div>
-          <button onClick={() => setValidationError(null)} className="text-slate-400 hover:text-white">
+          <button type="button" onClick={() => setValidationError(null)} className="text-slate-400 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>

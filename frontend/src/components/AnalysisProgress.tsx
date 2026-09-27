@@ -24,11 +24,11 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({ onComplete }
           return prev + 1;
         } else {
           clearInterval(timer);
-          setTimeout(onComplete, 500);
+          setTimeout(onComplete, 400);
           return prev;
         }
       });
-    }, 700);
+    }, 650);
 
     return () => clearInterval(timer);
   }, [onComplete]);

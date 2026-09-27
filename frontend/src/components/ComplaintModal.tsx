@@ -62,7 +62,7 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({
 
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(consumerPhone.replace(/\D/g, ''))) {
-      errs.consumerPhone = 'Please provide a valid 10-digit mobile number.';
+      errs.consumerPhone = 'Please provide a valid 10-digit Indian mobile number.';
     }
 
     if (!notes.trim() || notes.trim().length < 10) {
@@ -90,7 +90,7 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({
       consumer_email: consumerEmail.trim(),
       consumer_phone: consumerPhone.trim(),
       additional_notes: notes.trim(),
-      violation_ids: analysis.violations.filter(v => v.severity !== 'COMPLIANT').map(v => v.id),
+      violation_ids: analysis.violations.filter((v) => v.severity !== 'COMPLIANT').map((v) => v.id),
     };
 
     if (isDemoMode) {
@@ -132,7 +132,8 @@ Tracking Token: ${submittedDocket.tracking_number}
 Product: ${analysis.product_name}
 Brand: ${analysis.brand}
 Created: ${submittedDocket.created_at}
-${submittedDocket.is_simulated_demo ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITION ONLY]' : ''}`;
+Authority: ${submittedDocket.filing_authority}
+${submittedDocket.is_simulated_demo ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITION ONLY]' : '[OFFICIAL BACKEND DOCKET]'}`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -148,6 +149,7 @@ ${submittedDocket.is_simulated_demo ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITIO
       <div className="relative w-full max-w-2xl rounded-2xl border border-white/20 bg-slate-900 p-6 sm:p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
         {/* Close Button */}
         <button
+          type="button"
           onClick={onClose}
           aria-label="Close modal"
           className="absolute top-4 right-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
@@ -164,11 +166,11 @@ ${submittedDocket.is_simulated_demo ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITIO
 
             {submittedDocket.is_simulated_demo ? (
               <div className="inline-block rounded-md border border-amber-500/50 bg-amber-950/60 px-3 py-1 font-mono text-xs font-bold text-amber-300 mb-2">
-                ⚠ SIMULATED DEMO DOCKET — FOR EXPO EXHIBITION ONLY
+                [SIMULATED DEMO DOCKET — EXPO EXHIBITION ONLY]
               </div>
             ) : (
               <div className="inline-block rounded-md border border-emerald-500/50 bg-emerald-950/60 px-3 py-1 font-mono text-xs font-bold text-emerald-300 mb-2">
-                ✓ OFFICIAL GRIEVANCE TRANSMITTED TO MEMBER 3 BACKEND
+                [OFFICIAL GRIEVANCE TRANSMITTED TO MEMBER 3 BACKEND]
               </div>
             )}
 
@@ -201,9 +203,15 @@ ${submittedDocket.is_simulated_demo ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITIO
               </div>
             </div>
 
+            {/* Notice */}
+            <div className="mt-4 rounded bg-slate-950/60 p-3 text-[11px] text-slate-400 text-left border border-white/5">
+              Notice: This docket receipt serves as formal consumer record documentation. Retain your citizen tracking token for status inquiries with the designated district Legal Metrology officer or consumer commission.
+            </div>
+
             {/* Actions */}
             <div className="mt-6 flex items-center justify-center gap-3">
               <button
+                type="button"
                 onClick={copyDocket}
                 className="flex items-center gap-2 rounded-xl border border-white/20 bg-slate-800 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-700 transition"
               >
@@ -211,6 +219,7 @@ ${submittedDocket.is_simulated_demo ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITIO
                 <span>{copied ? 'Copied to Clipboard' : 'Copy Docket Text'}</span>
               </button>
               <button
+                type="button"
                 onClick={() => window.print()}
                 className="flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-600 px-4 py-2 text-xs font-bold text-white hover:bg-cyan-500 transition shadow-[0_0_12px_rgba(0,240,255,0.25)]"
               >
@@ -220,7 +229,7 @@ ${submittedDocket.is_simulated_demo ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITIO
             </div>
           </div>
         ) : (
-          /* Filing Form */
+          /* Complaint Submission Form */
           <div>
             <div className="flex items-center gap-3 mb-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/40">
@@ -249,7 +258,7 @@ ${submittedDocket.is_simulated_demo ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITIO
                 <div className="text-[11px] font-mono text-slate-400">Audited Commodity:</div>
                 <div className="text-sm font-bold text-white">{analysis.product_name}</div>
                 <div className="mt-1 flex flex-wrap gap-1">
-                  {analysis.violations.filter(v => v.severity !== 'COMPLIANT').map(v => (
+                  {analysis.violations.filter((v) => v.severity !== 'COMPLIANT').map((v) => (
                     <span key={v.id} className="rounded bg-rose-950/60 border border-rose-500/30 px-1.5 py-0.5 text-[10px] font-mono text-rose-300">
                       {v.rule_number}
                     </span>

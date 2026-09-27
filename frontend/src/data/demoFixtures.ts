@@ -14,7 +14,7 @@ export const DEMO_FIXTURES: AnalysisResult[] = [
       scanned_at: '2026-09-27T19:50:00Z',
       latency_ms: 1240,
       ocr_confidence: 0.984,
-      engine_version: 'PackGuard Vision Engine v4.2 (Benchmark Fixture)',
+      engine_version: 'PackGuard Vision Engine v4.2 (Academic Benchmark Fixture)',
       is_demo_fixture: true,
       fixture_name: 'Energy Drink (Statutory Breaches)',
       has_detected_boxes: true,
@@ -30,7 +30,7 @@ export const DEMO_FIXTURES: AnalysisResult[] = [
         detected_value: 'Caffeine concentration declared at 320 mg/L without prominent advisory panel',
         expected_standard: 'Statutory advisory required: "Contains Caffeine (320mg/L). Not recommended for children, pregnant or lactating women."',
         description: 'Mandatory advisory statement for caffeinated beverages is omitted or printed below minimum contrast thresholds.',
-        remedy: 'Statutory observation: Subject to rectification notice under FSSAI Section 23 upon verification by food safety officer.',
+        remedy: 'Statutory observation (AI Advisory): Subject to rectification notice under FSSAI Section 23 upon verification by food safety officer.',
         bounding_box: [0.65, 0.15, 0.88, 0.85]
       },
       {
@@ -40,10 +40,10 @@ export const DEMO_FIXTURES: AnalysisResult[] = [
         category: 'LEGAL_METROLOGY',
         act_reference: 'Legal Metrology (Packaged Commodities) Rules, 2011',
         rule_number: 'Rule 6(11) (2021 Amendment)',
-        detected_value: 'MRP ₹120.00 declared without per-ml Unit Sale Price',
-        expected_standard: 'Mandatory declaration of Unit Sale Price: e.g. "₹0.24 per ml" in font equal to MRP',
+        detected_value: 'MRP \u20B9120.00 declared without per-ml Unit Sale Price',
+        expected_standard: 'Mandatory declaration of Unit Sale Price: e.g. "\u20B90.24 per ml" in font equal to MRP',
         description: 'For all pre-packaged commodities exceeding 100ml/100g, the unit sale price must be displayed adjacent to the Maximum Retail Price.',
-        remedy: 'Statutory observation: Subject to scrutiny under Section 36 of Legal Metrology Act, 2009.',
+        remedy: 'Statutory observation (AI Advisory): Subject to scrutiny under Section 36 of Legal Metrology Act, 2009 upon verification by legal metrology officer.',
         bounding_box: [0.38, 0.55, 0.55, 0.92]
       },
       {
@@ -56,7 +56,7 @@ export const DEMO_FIXTURES: AnalysisResult[] = [
         detected_value: 'Front label displays "ZERO REFINED SUGAR" in prominent display font',
         expected_standard: 'Back ingredient declaration lists High Fructose Corn Syrup (14g per serving)',
         description: 'Front-of-pack claims emphasizing zero refined sugar while using alternative concentrated syrups warrant consumer disclosure.',
-        remedy: 'Consumer grievance filing recommended for administrative clarification.',
+        remedy: 'Consumer grievance filing recommended for administrative clarification under Consumer Protection Act.',
         bounding_box: [0.15, 0.12, 0.32, 0.65]
       }
     ]
@@ -74,7 +74,7 @@ export const DEMO_FIXTURES: AnalysisResult[] = [
       scanned_at: '2026-09-27T19:55:00Z',
       latency_ms: 890,
       ocr_confidence: 0.995,
-      engine_version: 'PackGuard Vision Engine v4.2 (Benchmark Fixture)',
+      engine_version: 'PackGuard Vision Engine v4.2 (Academic Benchmark Fixture)',
       is_demo_fixture: true,
       fixture_name: 'Mustard Oil (Compliant)',
       has_detected_boxes: true,
@@ -100,7 +100,7 @@ export const DEMO_FIXTURES: AnalysisResult[] = [
         category: 'LEGAL_METROLOGY',
         act_reference: 'Legal Metrology (Packaged Commodities) Rules, 2011',
         rule_number: 'Rule 6 & Rule 7',
-        detected_value: 'Net Qty: 1L, MRP: ₹185 (USP ₹0.185/ml), Mfg: Sep 2026',
+        detected_value: 'Net Qty: 1L, MRP: \u20B9185 (USP \u20B90.185/ml), Mfg: Sep 2026',
         expected_standard: 'Numeral height exceeding 4.0mm for 1L container with full customer care details',
         description: 'Mandatory retail package declarations conform to legal size and contrast specifications.',
         remedy: 'Fully compliant with applicable packaging norms.',
@@ -121,7 +121,7 @@ export const DEMO_FIXTURES: AnalysisResult[] = [
       scanned_at: '2026-09-27T19:58:00Z',
       latency_ms: 1100,
       ocr_confidence: 0.972,
-      engine_version: 'PackGuard Vision Engine v4.2 (Benchmark Fixture)',
+      engine_version: 'PackGuard Vision Engine v4.2 (Academic Benchmark Fixture)',
       is_demo_fixture: true,
       fixture_name: 'Cosmetic Serum (Statutory Warnings)',
       has_detected_boxes: true,
@@ -137,7 +137,7 @@ export const DEMO_FIXTURES: AnalysisResult[] = [
         detected_value: 'Net Volume font measured at ~1.1mm height',
         expected_standard: 'Packages up to 50ml require minimum 1.5mm to 2.0mm numeral height',
         description: 'Net volume lettering is below standard readability thresholds for consumer packaging.',
-        remedy: 'Statutory observation: Manufacturer should adjust type scale in future printing runs.',
+        remedy: 'Statutory observation (AI Advisory): Manufacturer should adjust type scale in subsequent production batches.',
         bounding_box: [0.42, 0.35, 0.58, 0.65]
       },
       {
@@ -150,7 +150,7 @@ export const DEMO_FIXTURES: AnalysisResult[] = [
         detected_value: 'Street address printed without postal PIN code',
         expected_standard: 'Mandatory declaration of complete registered office address including valid PIN code',
         description: 'Absence of postal PIN code impairs official postal communication for consumer queries.',
-        remedy: 'Statutory observation: Update label template to include complete registered postal PIN.',
+        remedy: 'Statutory observation (AI Advisory): Update label template to include complete registered postal PIN.',
         bounding_box: [0.70, 0.18, 0.90, 0.82]
       }
     ]

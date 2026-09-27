@@ -12,7 +12,7 @@ import { Footer } from '../components/Footer';
 import { DEMO_FIXTURES } from '../data/demoFixtures';
 import { AnalysisResult, Violation } from '../services/types';
 import { checkBackendHealth, analyzePackageImage, ApiStatus } from '../services/api';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function Home() {
   const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
@@ -59,8 +59,11 @@ export default function Home() {
     } catch (err: unknown) {
       const error = err as Error;
       console.error('Live API Error:', error);
+      // Explicitly clear stale analysis result so failed live call never masquerades as demo success!
+      setAnalysisResult(null);
+      setSelectedViolation(null);
       setApiErrorMessage(
-        `Live Analysis Error: ${error.message}. Please verify Member 3's FastAPI service is running at http://localhost:8000, or switch to Offline Demo Fixtures.`
+        `Live Analysis Error: ${error.message}. Please verify Member 3's FastAPI service is running at http://localhost:8000, or switch to Offline Benchmark Fixtures.`
       );
     } finally {
       setIsAnalyzing(false);
@@ -98,8 +101,8 @@ export default function Home() {
             act_reference: 'Legal Metrology (Packaged Commodities) Rules, 2011',
             rule_number: 'Rule 6 & Rule 7',
             detected_value: 'Custom image uploaded in offline demo mode',
-            expected_standard: 'Bounding boxes are computed dynamically by Member 1\'s AI model on live backend',
-            description: 'PackGuard AI strictly prohibits drawing fabricated bounding boxes across unverified image regions. Connect Member 3\'s backend to run live inference.',
+            expected_standard: "Bounding boxes are computed dynamically by Member 1's AI model on live backend",
+            description: "PackGuard AI strictly prohibits drawing fabricated bounding boxes across unverified image regions. Connect Member 3's backend to run live inference.",
             remedy: 'Select a verified benchmark preset to test interactive coordinate inspection.',
           }
         ]
@@ -117,7 +120,7 @@ export default function Home() {
       setAnalysisResult(fixture);
       setSelectedViolation(fixture.violations[0] || null);
       setIsAnalyzing(false);
-    }, 400);
+    }, 350);
   };
 
   const handleReset = () => {
@@ -132,7 +135,10 @@ export default function Home() {
       <Header
         apiStatus={apiStatus}
         isDemoMode={isDemoMode}
-        onToggleDemoMode={() => setIsDemoMode((d) => !d)}
+        onToggleDemoMode={() => {
+          setIsDemoMode((d) => !d);
+          setApiErrorMessage(null);
+        }}
       />
 
       <main className="flex-1">
@@ -148,15 +154,19 @@ export default function Home() {
                 <p className="mt-1">{apiErrorMessage}</p>
                 <div className="mt-3 flex items-center gap-3">
                   <button
+                    type="button"
                     onClick={() => {
                       setIsDemoMode(true);
                       setApiErrorMessage(null);
+                      setAnalysisResult(DEMO_FIXTURES[0]);
+                      setSelectedViolation(DEMO_FIXTURES[0].violations[0]);
                     }}
                     className="rounded bg-rose-600 px-3 py-1 font-bold text-white hover:bg-rose-500 transition"
                   >
                     Switch to Offline Benchmark Fixtures
                   </button>
                   <button
+                    type="button"
                     onClick={() => setApiErrorMessage(null)}
                     className="text-slate-400 hover:text-white"
                   >
@@ -182,6 +192,39 @@ export default function Home() {
           {/* Analysis Progress HUD */}
           {isAnalyzing && (
             <AnalysisProgress onComplete={handleAnalysisCompleted} />
+          )}
+
+          {/* Analysis Failed Card (When Live API fails and no result is available) */}
+          {!isAnalyzing && !analysisResult && apiErrorMessage && (
+            <div className="rounded-2xl border border-rose-500/30 bg-slate-900/80 p-8 text-center backdrop-blur-md">
+              <AlertCircle className="mx-auto h-12 w-12 text-rose-400 mb-3" />
+              <h3 className="text-xl font-bold text-white">Analysis Unsuccessful</h3>
+              <p className="mt-2 text-xs text-slate-300 max-w-md mx-auto">
+                The live packaging analysis could not be completed because Member 3&apos;s backend did not respond. No simulated fallback data is displayed in Live API Mode.
+              </p>
+              <div className="mt-6 flex items-center justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => selectedFile && handleImageSelected(selectedFile)}
+                  className="flex items-center gap-2 rounded-lg border border-white/20 bg-slate-800 px-4 py-2 font-mono text-xs font-semibold text-white hover:bg-slate-700 transition"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 text-cyan-400" />
+                  Retry Live Analysis
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDemoMode(true);
+                    setApiErrorMessage(null);
+                    setAnalysisResult(DEMO_FIXTURES[0]);
+                    setSelectedViolation(DEMO_FIXTURES[0].violations[0]);
+                  }}
+                  className="rounded-lg border border-cyan-500/40 bg-cyan-600 px-4 py-2 font-mono text-xs font-bold text-white hover:bg-cyan-500 transition shadow-[0_0_12px_rgba(0,240,255,0.25)]"
+                >
+                  Load Offline Benchmark Fixtures
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Split-View Results & Evidence Viewer */}
