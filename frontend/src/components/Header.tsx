@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ShieldAlert, ShieldCheck, Activity, PhoneCall, Sparkles, Server } from 'lucide-react';
+import { ShieldAlert, PhoneCall, Sparkles, Server } from 'lucide-react';
 import { ApiStatus } from '../services/api';
 
 interface HeaderProps {
@@ -16,7 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleDemoMode,
 }) => {
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#0b0f19]/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#0b0f19]/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         {/* Brand */}
         <div className="flex items-center gap-3">
@@ -33,11 +33,11 @@ export const Header: React.FC<HeaderProps> = ({
                 PackGuard <span className="text-cyan-400">AI</span>
               </span>
               <span className="rounded border border-cyan-500/30 bg-cyan-950/60 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-cyan-300">
-                v2.4
+                Member 2 Frontend
               </span>
             </div>
             <p className="font-mono text-[11px] text-slate-400">
-              Consumer Packaging Compliance & Metrology Verification
+              Consumer Packaging Metrology & Statutory Verification
             </p>
           </div>
         </div>
@@ -47,16 +47,16 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Live Backend Telemetry Pill */}
           <div className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-900/60 px-3 py-1 font-mono text-xs">
             <Server className="h-3.5 w-3.5 text-slate-400" />
-            <span className="text-slate-400">Backend:</span>
+            <span className="text-slate-400">Member 3 Backend:</span>
             {apiStatus?.online ? (
-              <span className="flex items-center gap-1.5 text-emerald-400">
+              <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                FastAPI Live ({apiStatus.latencyMs}ms)
+                FastAPI Connected ({apiStatus.latencyMs}ms)
               </span>
             ) : (
-              <span className="flex items-center gap-1.5 text-amber-400" title={apiStatus?.statusText}>
+              <span className="flex items-center gap-1.5 text-amber-400 font-medium" title={apiStatus?.statusText}>
                 <span className="h-2 w-2 rounded-full bg-amber-400"></span>
-                FastAPI Unreachable
+                FastAPI Offline ({apiStatus?.baseUrl || 'http://localhost:8000'})
               </span>
             )}
           </div>
@@ -64,23 +64,24 @@ export const Header: React.FC<HeaderProps> = ({
           {/* National Consumer Helpline Badge */}
           <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-950/40 px-3 py-1 font-mono text-xs text-emerald-300">
             <PhoneCall className="h-3 w-3 text-emerald-400" />
-            <span>NCH Helpline: 1915</span>
+            <span>NCH Toll-Free: 1915</span>
           </div>
         </div>
 
-        {/* Right Actions */}
+        {/* Right Actions: Explicit Mode Toggle */}
         <div className="flex items-center gap-3">
           <button
             onClick={onToggleDemoMode}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold transition-all ${
+            aria-pressed={isDemoMode}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
               isDemoMode
                 ? 'border-cyan-400/60 bg-cyan-950/80 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.25)]'
-                : 'border-white/10 bg-slate-900/80 text-slate-400 hover:border-white/20 hover:text-white'
+                : 'border-white/15 bg-slate-900/80 text-slate-300 hover:border-white/30 hover:text-white'
             }`}
-            title="Toggle offline demo fixtures for expo demonstration"
+            title="Switch between Live FastAPI mode and Offline Benchmark Demo Fixtures"
           >
             <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-            <span>{isDemoMode ? 'Demo Mode: ON' : 'Demo Mode: OFF'}</span>
+            <span>{isDemoMode ? 'Mode: Offline Demo Fixtures' : 'Mode: Live FastAPI Backend'}</span>
           </button>
         </div>
       </div>

@@ -6,11 +6,6 @@ export type ViolationCategory =
   | 'FSSAI_NORMS'
   | 'DECEPTIVE_PACKAGING';
 
-export interface BoundingBoxCoordinates {
-  // Normalized 0.0 - 1.0: [ymin, xmin, ymax, xmax]
-  box: [number, number, number, number];
-}
-
 export interface Violation {
   id: string;
   title: string;
@@ -22,7 +17,8 @@ export interface Violation {
   expected_standard: string;
   description: string;
   remedy: string;
-  bounding_box?: [number, number, number, number]; // [ymin, xmin, ymax, xmax]
+  // Normalized 0.0 - 1.0: [ymin, xmin, ymax, xmax] relative to packaging image
+  bounding_box?: [number, number, number, number];
 }
 
 export interface AnalysisMetadata {
@@ -32,6 +28,7 @@ export interface AnalysisMetadata {
   engine_version: string;
   is_demo_fixture?: boolean;
   fixture_name?: string;
+  has_detected_boxes?: boolean;
 }
 
 export interface AnalysisResult {
@@ -68,4 +65,5 @@ export interface ComplaintResponse {
   created_at: string;
   filing_authority: string;
   message: string;
+  is_simulated_demo?: boolean;
 }

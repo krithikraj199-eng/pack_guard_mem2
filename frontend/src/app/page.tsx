@@ -12,7 +12,7 @@ import { Footer } from '../components/Footer';
 import { DEMO_FIXTURES } from '../data/demoFixtures';
 import { AnalysisResult, Violation } from '../services/types';
 import { checkBackendHealth, analyzePackageImage, ApiStatus } from '../services/api';
-import { AlertCircle, RotateCcw, Sparkles } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 export default function Home() {
   const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
@@ -45,12 +45,12 @@ export default function Home() {
     setApiErrorMessage(null);
 
     if (isDemoMode) {
-      // In demo mode, simulate AI progress then use dynamic user-image fixture
+      // In offline demo mode: simulate pipeline scan for user's file, but DO NOT fabricate coordinates!
       setIsAnalyzing(true);
       return;
     }
 
-    // Live mode: call Member 3 backend
+    // Live mode: call Member 3's FastAPI backend
     setIsAnalyzing(true);
     try {
       const liveData = await analyzePackageImage(file);
@@ -60,7 +60,7 @@ export default function Home() {
       const error = err as Error;
       console.error('Live API Error:', error);
       setApiErrorMessage(
-        `Live Analysis Unreachable: ${error.message}. Please verify Member 3's FastAPI backend is running at http://localhost:8000, or switch to Demo Mode for presentation testing.`
+        `Live Analysis Error: ${error.message}. Please verify Member 3's FastAPI service is running at http://localhost:8000, or switch to Offline Demo Fixtures.`
       );
     } finally {
       setIsAnalyzing(false);
@@ -70,50 +70,37 @@ export default function Home() {
   const handleAnalysisCompleted = () => {
     setIsAnalyzing(false);
     if (selectedFile) {
-      // Create user-analyzed result using the uploaded image URL
+      // Custom user upload in Demo Mode: Do not invent fake coordinates on random pixels!
       const userResult: AnalysisResult = {
         analysis_id: `USER-AUDIT-${Date.now()}`,
         product_name: selectedFile.name.replace(/\.[^/.]+$/, ''),
-        brand: 'Packaged Retail Commodity',
-        category: 'Consumer Packaged Goods',
-        overall_score: 52,
-        status: 'CRITICAL',
-        summary: 'Optical character scan completed. Statutory declarations inspected against Legal Metrology Rules, 2011 and FSSAI standards.',
+        brand: 'Custom Uploaded Packaging',
+        category: 'Consumer Retail Goods',
+        overall_score: 72,
+        status: 'WARNING',
+        summary: `Custom image received (${(selectedFile.size / 1024).toFixed(1)} KB). Statutory OCR and object bounding-box localization require Member 1's live Vision Engine. To test verified interactive coordinates, select a Benchmark Preset.`,
         image_url: URL.createObjectURL(selectedFile),
         metadata: {
           scanned_at: new Date().toISOString(),
-          latency_ms: 1420,
-          ocr_confidence: 0.982,
-          engine_version: 'PackGuard Vision Engine v4.2',
+          latency_ms: 1350,
+          ocr_confidence: 0.95,
+          engine_version: 'PackGuard Vision Engine v4.2 (Demo Simulation)',
           is_demo_fixture: true,
-          fixture_name: 'Live Upload Optical Audit'
+          fixture_name: 'Custom User Upload',
+          has_detected_boxes: false, // Explicitly false: never fabricate coordinates!
         },
         violations: [
           {
-            id: 'VIOL-USER-1',
-            title: 'Obscured Maximum Retail Price (MRP) & Unit Sale Price',
-            severity: 'CRITICAL',
+            id: 'VIOL-USER-NOTICE',
+            title: 'Live Vision Engine Required for Custom Coordinates',
+            severity: 'WARNING',
             category: 'LEGAL_METROLOGY',
             act_reference: 'Legal Metrology (Packaged Commodities) Rules, 2011',
-            rule_number: 'Rule 6(1)(e) & Rule 6(11)',
-            detected_value: 'MRP printed with low-contrast ink on curved seam; USP missing',
-            expected_standard: 'Clear, indelible print of MRP inclusive of all taxes, with per-unit price',
-            description: 'Printing mandatory retail pricing on seals or dark backgrounds violates indelible declaration norms.',
-            remedy: 'Product liable for statutory seizure and dealer notice.',
-            bounding_box: [0.60, 0.20, 0.85, 0.85]
-          },
-          {
-            id: 'VIOL-USER-2',
-            title: 'Undersized Font for Mandatory Declarations',
-            severity: 'WARNING',
-            category: 'MANDATORY_DECLARATIONS',
-            act_reference: 'Legal Metrology (Packaged Commodities) Rules, 2011',
-            rule_number: 'Rule 7 (Table 1)',
-            detected_value: 'Numerals measuring 1.2mm height',
-            expected_standard: 'Minimum 2.0mm font height for packages over 50g',
-            description: 'Consumer information lettering does not satisfy statutory legibility ratios.',
-            remedy: 'Relabeling or manufacturer warning.',
-            bounding_box: [0.25, 0.25, 0.45, 0.75]
+            rule_number: 'Rule 6 & Rule 7',
+            detected_value: 'Custom image uploaded in offline demo mode',
+            expected_standard: 'Bounding boxes are computed dynamically by Member 1\'s AI model on live backend',
+            description: 'PackGuard AI strictly prohibits drawing fabricated bounding boxes across unverified image regions. Connect Member 3\'s backend to run live inference.',
+            remedy: 'Select a verified benchmark preset to test interactive coordinate inspection.',
           }
         ]
       };
@@ -133,6 +120,13 @@ export default function Home() {
     }, 400);
   };
 
+  const handleReset = () => {
+    setSelectedFile(null);
+    setApiErrorMessage(null);
+    setAnalysisResult(DEMO_FIXTURES[0]);
+    setSelectedViolation(DEMO_FIXTURES[0].violations[0]);
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-[#0b0f19]">
       <Header
@@ -144,15 +138,15 @@ export default function Home() {
       <main className="flex-1">
         <Hero />
 
-        {/* Live API Error Notice if live request failed */}
+        {/* Live API Error Notice */}
         {apiErrorMessage && (
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-6">
-            <div className="rounded-xl border border-rose-500/50 bg-rose-950/40 p-4 text-xs font-mono text-rose-300 flex items-start gap-3 shadow-lg">
+            <div role="alert" className="rounded-xl border border-rose-500/50 bg-rose-950/40 p-4 text-xs font-mono text-rose-300 flex items-start gap-3 shadow-lg">
               <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <span className="font-bold text-white">Live API Communication Alert:</span>
                 <p className="mt-1">{apiErrorMessage}</p>
-                <div className="mt-2 flex items-center gap-3">
+                <div className="mt-3 flex items-center gap-3">
                   <button
                     onClick={() => {
                       setIsDemoMode(true);
@@ -160,7 +154,7 @@ export default function Home() {
                     }}
                     className="rounded bg-rose-600 px-3 py-1 font-bold text-white hover:bg-rose-500 transition"
                   >
-                    Switch to Offline Demo Fixtures
+                    Switch to Offline Benchmark Fixtures
                   </button>
                   <button
                     onClick={() => setApiErrorMessage(null)}
@@ -179,8 +173,10 @@ export default function Home() {
           <UploadSection
             onImageSelected={handleImageSelected}
             onSelectFixture={handleSelectFixture}
+            onReset={handleReset}
             selectedFixtureId={analysisResult?.analysis_id}
             isAnalyzing={isAnalyzing}
+            isDemoMode={isDemoMode}
           />
 
           {/* Analysis Progress HUD */}
@@ -218,6 +214,7 @@ export default function Home() {
       {complaintModalOpen && analysisResult && (
         <ComplaintModal
           analysis={analysisResult}
+          isDemoMode={isDemoMode}
           onClose={() => setComplaintModalOpen(false)}
         />
       )}

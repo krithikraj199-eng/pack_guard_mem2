@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AlertOctagon, CheckCircle2, AlertTriangle, FileText, ArrowRight, Scale, BookOpen, ShieldAlert } from 'lucide-react';
+import { AlertOctagon, CheckCircle2, AlertTriangle, Scale, BookOpen, ShieldAlert } from 'lucide-react';
 import { AnalysisResult, Violation } from '../services/types';
 
 interface ComplianceResultsProps {
@@ -44,12 +44,12 @@ export const ComplianceResults: React.FC<ComplianceResultsProps> = ({
                 {isCritical && <AlertOctagon className="h-3.5 w-3.5 text-rose-400" />}
                 {isWarning && <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />}
                 {isCompliant && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />}
-                {isCritical ? 'STATUTORY VIOLATION DETECTED' : isWarning ? 'STATUTORY WARNING' : 'VERIFIED COMPLIANT'}
+                {isCritical ? 'STATUTORY NON-COMPLIANCE' : isWarning ? 'STATUTORY WARNING' : 'VERIFIED COMPLIANT'}
               </span>
 
               {analysis.metadata.is_demo_fixture && (
                 <span className="rounded border border-cyan-500/30 bg-cyan-950/60 px-2 py-0.5 font-mono text-[10px] text-cyan-300">
-                  DEMO FIXTURE
+                  BENCHMARK FIXTURE
                 </span>
               )}
             </div>
@@ -77,7 +77,7 @@ export const ComplianceResults: React.FC<ComplianceResultsProps> = ({
             {!isCompliant && (
               <button
                 onClick={onOpenComplaintModal}
-                className="flex items-center gap-2 rounded-xl border border-rose-500/50 bg-rose-600 px-4 py-2.5 font-mono text-xs font-bold text-white shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:bg-rose-500 transition"
+                className="flex items-center gap-2 rounded-xl border border-rose-500/50 bg-rose-600 px-4 py-2.5 font-mono text-xs font-bold text-white shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:bg-rose-500 transition focus:outline-none focus:ring-2 focus:ring-rose-400"
               >
                 <ShieldAlert className="h-4 w-4" />
                 <span>File Grievance</span>
@@ -91,7 +91,7 @@ export const ComplianceResults: React.FC<ComplianceResultsProps> = ({
       <div>
         <h3 className="text-base font-bold text-white flex items-center gap-2 mb-3">
           <BookOpen className="h-5 w-5 text-cyan-400" />
-          Statutory Violations & Verification Ledger ({analysis.violations.length})
+          Statutory Verification Findings ({analysis.violations.length})
         </h3>
 
         <div className="space-y-3">
@@ -102,11 +102,19 @@ export const ComplianceResults: React.FC<ComplianceResultsProps> = ({
               <div
                 key={violation.id}
                 onClick={() => onSelectViolation(violation)}
-                className={`cursor-pointer rounded-xl border p-4 transition-all ${
+                className={`cursor-pointer rounded-xl border p-4 transition-all focus:outline-none focus:ring-1 focus:ring-cyan-400 ${
                   isSelected
                     ? 'border-cyan-400 bg-slate-900 shadow-[0_0_15px_rgba(0,240,255,0.15)] ring-1 ring-cyan-400'
                     : 'border-white/10 bg-slate-900/60 hover:border-white/20 hover:bg-slate-900/90'
                 }`}
+                tabIndex={0}
+                role="button"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectViolation(violation);
+                  }
+                }}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5">
@@ -148,14 +156,14 @@ export const ComplianceResults: React.FC<ComplianceResultsProps> = ({
                 </div>
 
                 <div className="mt-2 text-xs text-slate-400">
-                  <span className="text-slate-500 font-mono">Legal Requirement: </span>
+                  <span className="text-slate-500 font-mono">Statutory Requirement: </span>
                   {violation.expected_standard}
                 </div>
 
                 {violation.remedy && (
                   <div className="mt-2 rounded bg-slate-950/70 p-2 text-xs font-mono text-cyan-300 border border-cyan-500/20 flex items-center gap-1.5">
                     <Scale className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
-                    <span>Statutory Remedy: {violation.remedy}</span>
+                    <span>{violation.remedy}</span>
                   </div>
                 )}
               </div>
