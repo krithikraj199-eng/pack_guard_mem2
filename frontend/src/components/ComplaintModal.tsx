@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, ShieldAlert, Send, Printer, Copy, Check, FileCheck, AlertCircle } from 'lucide-react';
+import { X, ShieldAlert, Send, Printer, Copy, Check, FileCheck, AlertCircle, CheckSquare, Square } from 'lucide-react';
 import { AnalysisResult, ComplaintPayload, ComplaintResponse } from '../services/types';
 import { submitComplaint } from '../services/api';
 
@@ -9,12 +9,14 @@ interface ComplaintModalProps {
   analysis: AnalysisResult;
   isDemoMode: boolean;
   onClose: () => void;
+  onComplaintSubmitted?: (complaint: ComplaintResponse) => void;
 }
 
 export const ComplaintModal: React.FC<ComplaintModalProps> = ({
   analysis,
   isDemoMode,
   onClose,
+  onComplaintSubmitted,
 }) => {
   const [merchant, setMerchant] = useState('Local Retail Store / E-Commerce Platform');
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
@@ -22,6 +24,12 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({
   const [consumerEmail, setConsumerEmail] = useState('citizen@example.com');
   const [consumerPhone, setConsumerPhone] = useState('9876543210');
   const [notes, setNotes] = useState('Purchased package was found non-compliant with statutory packaging declarations.');
+
+  // Selectable violations list (default all non-compliant findings checked)
+  const nonCompliantViolations = analysis.violations.filter((v) => v.severity !== 'COMPLIANT');
+  const [selectedViolationIds, setSelectedViolationIds] = useState<string[]>(
+    nonCompliantViolations.map((v) => v.id)
+  );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -37,6 +45,12 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
+  const toggleViolationSelection = (id: string) => {
+    setSelectedViolationIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
 
   const validateForm = (): boolean => {
     const errs: Record<string, string> = {};
@@ -69,8 +83,27 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({
       errs.notes = 'Please provide detailed remarks (min 10 characters).';
     }
 
+    if (selectedViolationIds.length === 0) {
+      errs.violations = 'Please select at least one screening finding to include in the complaint.';
+    }
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
+  };
+
+  // Helper to persist complaint in browser storage
+  const saveToLocalHistory = (docket: ComplaintResponse) => {
+    try {
+      const stored = localStorage.getItem('packguard_complaints');
+      const list: ComplaintResponse[] = stored ? JSON.parse(stored) : [];
+      list.unshift(docket);
+      localStorage.setItem('packguard_complaints', JSON.stringify(list));
+      if (onComplaintSubmitted) {
+        onComplaintSubmitted(docket);
+      }
+    } catch (e) {
+      console.warn('LocalStorage save error:', e);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,11 +123,11 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({
       consumer_email: consumerEmail.trim(),
       consumer_phone: consumerPhone.trim(),
       additional_notes: notes.trim(),
-      violation_ids: analysis.violations.filter((v) => v.severity !== 'COMPLIANT').map((v) => v.id),
+      violation_ids: selectedViolationIds,
     };
 
     if (isDemoMode) {
-      // In explicit demo mode: Generate clearly watermarked demo docket
+      // Offline Demo Mode: Generate realistic watermarked test docket
       setTimeout(() => {
         const demoDocket: ComplaintResponse = {
           success: true,
@@ -102,23 +135,36 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({
           tracking_number: `DEMO-TRACK-${Math.floor(100000 + Math.random() * 900000)}`,
           status: 'SUBMITTED_FOR_OFFICER_REVIEW',
           created_at: new Date().toISOString(),
-          filing_authority: 'Central Consumer Protection Authority (Simulated Routing for Expo Demo)',
+          filing_authority: 'Designated Legal Metrology Officer (Simulated Queue for Expo Demo)',
           message: 'Simulated grievance docket generated successfully for offline expo testing.',
           is_simulated_demo: true,
+          product_name: analysis.product_name,
+          brand: analysis.brand,
+          violations_count: selectedViolationIds.length,
         };
         setSubmittedDocket(demoDocket);
+        saveToLocalHistory(demoDocket);
         setSubmitting(false);
       }, 400);
       return;
     }
 
-    // Live mode: Call Member 3's backend. DO NOT fabricate success if live backend fails!
+    // Live Mode: Call Member 3's backend. Do not fabricate success if backend fails!
     try {
       const response = await submitComplaint(payload);
-      setSubmittedDocket(response);
+      const enhancedResponse: ComplaintResponse = {
+        ...response,
+        product_name: analysis.product_name,
+        brand: analysis.brand,
+        violations_count: selectedViolationIds.length,
+      };
+      setSubmittedDocket(enhancedResponse);
+      saveToLocalHistory(enhancedResponse);
     } catch (err: unknown) {
       const error = err as Error;
-      setApiError(`Live Submission Failed: ${error.message}. Member 3's FastAPI service is unreachable at http://localhost:8000. Live submission requires active backend.`);
+      setApiError(
+        `Live Submission Failed: ${error.message}. Member 3's FastAPI service is unreachable at http://localhost:8000. Live submission requires an active backend.`
+      );
     } finally {
       setSubmitting(false);
     }
@@ -132,8 +178,13 @@ Tracking Token: ${submittedDocket.tracking_number}
 Product: ${analysis.product_name}
 Brand: ${analysis.brand}
 Created: ${submittedDocket.created_at}
-Authority: ${submittedDocket.filing_authority}
-${submittedDocket.is_simulated_demo ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITION ONLY]' : '[OFFICIAL BACKEND DOCKET]'}`;
+Routing Authority: ${submittedDocket.filing_authority}
+Status: ${submittedDocket.status}
+${
+  submittedDocket.is_simulated_demo
+    ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITION ONLY]'
+    : '[OFFICIAL COMPLAINT DOCKET TRANSMITTED TO MEMBER 3 BACKEND]'
+}`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -170,12 +221,12 @@ ${submittedDocket.is_simulated_demo ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITIO
               </div>
             ) : (
               <div className="inline-block rounded-md border border-emerald-500/50 bg-emerald-950/60 px-3 py-1 font-mono text-xs font-bold text-emerald-300 mb-2">
-                [OFFICIAL GRIEVANCE TRANSMITTED TO MEMBER 3 BACKEND]
+                [COMPLAINT TRANSMITTED FOR HUMAN OFFICER VERIFICATION]
               </div>
             )}
 
             <h3 id="complaint-modal-title" className="text-2xl font-bold text-white">
-              Grievance Docket Generated
+              Grievance Record Generated
             </h3>
             <p className="mt-1 text-xs text-slate-300">
               {submittedDocket.is_simulated_demo
@@ -205,11 +256,11 @@ ${submittedDocket.is_simulated_demo ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITIO
 
             {/* Notice */}
             <div className="mt-4 rounded bg-slate-950/60 p-3 text-[11px] text-slate-400 text-left border border-white/5">
-              Notice: This docket receipt serves as formal consumer record documentation. Retain your citizen tracking token for status inquiries with the designated district Legal Metrology officer or consumer commission.
+              <strong>Notice:</strong> This grievance record documents preliminary statutory observations. Final legal determinations and official notices are issued by authorized enforcement officers under the Legal Metrology Act, 2009. Retain your citizen tracking token for status inquiries.
             </div>
 
             {/* Actions */}
-            <div className="mt-6 flex items-center justify-center gap-3">
+            <div className="mt-6 flex items-center justify-center gap-3 flex-wrap">
               <button
                 type="button"
                 onClick={copyDocket}
@@ -226,6 +277,13 @@ ${submittedDocket.is_simulated_demo ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITIO
                 <Printer className="h-4 w-4" />
                 <span>Print Formal Docket</span>
               </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-white/15 px-4 py-2 text-xs text-slate-300 hover:text-white"
+              >
+                Done
+              </button>
             </div>
           </div>
         ) : (
@@ -237,32 +295,58 @@ ${submittedDocket.is_simulated_demo ? '[SIMULATED DEMO DOCKET — EXPO EXHIBITIO
               </div>
               <div>
                 <h3 id="complaint-modal-title" className="text-lg font-bold text-white">
-                  File Statutory Non-Compliance Grievance
+                  Submit Evidence-Backed Compliance Complaint
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Pre-populated with identified violations against {analysis.brand}.
+                  Pre-populated with preliminary screening findings for forwarding to Officer Review.
                 </p>
               </div>
             </div>
 
             {apiError && (
-              <div role="alert" className="mb-4 rounded-xl border border-rose-500/50 bg-rose-950/40 p-3 text-xs font-mono text-rose-300 flex items-start gap-2">
+              <div
+                role="alert"
+                className="mb-4 rounded-xl border border-rose-500/50 bg-rose-950/40 p-3 text-xs font-mono text-rose-300 flex items-start gap-2"
+              >
                 <AlertCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
                 <span>{apiError}</span>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Product Info */}
+              {/* Product Info & Selectable Findings */}
               <div className="rounded-lg border border-white/10 bg-slate-950/60 p-3">
                 <div className="text-[11px] font-mono text-slate-400">Audited Commodity:</div>
                 <div className="text-sm font-bold text-white">{analysis.product_name}</div>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {analysis.violations.filter((v) => v.severity !== 'COMPLIANT').map((v) => (
-                    <span key={v.id} className="rounded bg-rose-950/60 border border-rose-500/30 px-1.5 py-0.5 text-[10px] font-mono text-rose-300">
-                      {v.rule_number}
-                    </span>
-                  ))}
+                <div className="text-xs text-slate-400 mb-2">{analysis.brand}</div>
+
+                <div className="border-t border-white/10 pt-2">
+                  <span className="text-[11px] font-mono text-slate-400 block mb-1.5">
+                    Include Screened Observations in Grievance:
+                  </span>
+                  <div className="space-y-1.5">
+                    {nonCompliantViolations.map((v) => {
+                      const isSelected = selectedViolationIds.includes(v.id);
+                      return (
+                        <div
+                          key={v.id}
+                          onClick={() => toggleViolationSelection(v.id)}
+                          className="flex items-center gap-2 cursor-pointer text-xs p-1.5 rounded hover:bg-slate-900"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="h-4 w-4 text-cyan-400 shrink-0" />
+                          ) : (
+                            <Square className="h-4 w-4 text-slate-600 shrink-0" />
+                          )}
+                          <span className="font-mono text-cyan-300 font-semibold">{v.rule_number}:</span>
+                          <span className="text-slate-300">{v.title}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {errors.violations && (
+                    <p className="mt-1 text-[11px] text-rose-400 font-mono">{errors.violations}</p>
+                  )}
                 </div>
               </div>
 

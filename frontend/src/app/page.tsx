@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from '../components/Header';
 import { Hero } from '../components/Hero';
 import { UploadSection } from '../components/UploadSection';
@@ -8,9 +8,11 @@ import { AnalysisProgress } from '../components/AnalysisProgress';
 import { EvidenceViewer } from '../components/EvidenceViewer';
 import { ComplianceResults } from '../components/ComplianceResults';
 import { ComplaintModal } from '../components/ComplaintModal';
+import { ComplaintHistoryModal } from '../components/ComplaintHistoryModal';
+import { IntegrationContractsModal } from '../components/IntegrationContractsModal';
 import { Footer } from '../components/Footer';
 import { DEMO_FIXTURES } from '../data/demoFixtures';
-import { AnalysisResult, Violation } from '../services/types';
+import { AnalysisResult, Violation, ExtractedDeclaration, ComplaintResponse } from '../services/types';
 import { checkBackendHealth, analyzePackageImage, ApiStatus } from '../services/api';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
@@ -21,8 +23,37 @@ export default function Home() {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(DEMO_FIXTURES[0]);
   const [selectedViolation, setSelectedViolation] = useState<Violation | null>(DEMO_FIXTURES[0].violations[0]);
+  
+  // Modals
   const [complaintModalOpen, setComplaintModalOpen] = useState<boolean>(false);
+  const [historyModalOpen, setHistoryModalOpen] = useState<boolean>(false);
+  const [contractsModalOpen, setContractsModalOpen] = useState<boolean>(false);
+  const [complaintsCount, setComplaintsCount] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    try {
+      const stored = localStorage.getItem('packguard_complaints');
+      return stored ? JSON.parse(stored).length : 0;
+    } catch {
+      return 0;
+    }
+  });
+
   const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null);
+
+  // Read stored complaints count
+  const refreshComplaintsCount = useCallback(() => {
+    try {
+      const stored = localStorage.getItem('packguard_complaints');
+      if (stored) {
+        const list: ComplaintResponse[] = JSON.parse(stored);
+        setComplaintsCount(list.length);
+      } else {
+        setComplaintsCount(0);
+      }
+    } catch {
+      setComplaintsCount(0);
+    }
+  }, []);
 
   // Check backend health on mount
   useEffect(() => {
@@ -38,14 +69,14 @@ export default function Home() {
     }, 15000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshComplaintsCount]);
 
   const handleImageSelected = async (file: File) => {
     setSelectedFile(file);
     setApiErrorMessage(null);
 
     if (isDemoMode) {
-      // In offline demo mode: simulate pipeline scan for user's file, but DO NOT fabricate coordinates!
+      // Offline demo mode: simulate pipeline scan for user's file, but DO NOT fabricate coordinates!
       setIsAnalyzing(true);
       return;
     }
@@ -81,7 +112,7 @@ export default function Home() {
         category: 'Consumer Retail Goods',
         overall_score: 72,
         status: 'WARNING',
-        summary: `Custom image received (${(selectedFile.size / 1024).toFixed(1)} KB). Statutory OCR and object bounding-box localization require Member 1's live Vision Engine. To test verified interactive coordinates, select a Benchmark Preset.`,
+        summary: `Custom packaging image received (${(selectedFile.size / 1024).toFixed(1)} KB). Optical OCR and object bounding-box localization require Member 1's live Vision Engine. To test verified interactive coordinates, select a Benchmark Preset.`,
         image_url: URL.createObjectURL(selectedFile),
         metadata: {
           scanned_at: new Date().toISOString(),
@@ -92,6 +123,35 @@ export default function Home() {
           fixture_name: 'Custom User Upload',
           has_detected_boxes: false, // Explicitly false: never fabricate coordinates!
         },
+        declarations: [
+          {
+            id: 'DECL-CUSTOM-01',
+            field_name: 'Maximum Retail Price (MRP)',
+            rule_citation: 'Rule 6(1)(e)',
+            extracted_value: 'Requires live Member 1 OCR extraction',
+            status: 'REQUIRES_VERIFICATION',
+            confidence: 0.90,
+            bounding_box: undefined,
+          },
+          {
+            id: 'DECL-CUSTOM-02',
+            field_name: 'Net Quantity / Volume',
+            rule_citation: 'Rule 6(1)(b) & Rule 7',
+            extracted_value: 'Requires live Member 1 OCR extraction',
+            status: 'REQUIRES_VERIFICATION',
+            confidence: 0.90,
+            bounding_box: undefined,
+          },
+          {
+            id: 'DECL-CUSTOM-03',
+            field_name: 'Date of Manufacture / Packing',
+            rule_citation: 'Rule 6(1)(d)',
+            extracted_value: 'Requires live Member 1 OCR extraction',
+            status: 'REQUIRES_VERIFICATION',
+            confidence: 0.90,
+            bounding_box: undefined,
+          }
+        ],
         violations: [
           {
             id: 'VIOL-USER-NOTICE',
@@ -130,6 +190,17 @@ export default function Home() {
     setSelectedViolation(DEMO_FIXTURES[0].violations[0]);
   };
 
+  const handleLocateDeclaration = (declaration: ExtractedDeclaration) => {
+    // If declaration has a bounding box, check if there's a matching violation to select
+    const matchingViolation = analysisResult?.violations.find(
+      (v) => v.bounding_box && declaration.bounding_box &&
+             Math.abs(v.bounding_box[0] - declaration.bounding_box[0]) < 0.05
+    );
+    if (matchingViolation) {
+      setSelectedViolation(matchingViolation);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-[#0b0f19]">
       <Header
@@ -139,6 +210,9 @@ export default function Home() {
           setIsDemoMode((d) => !d);
           setApiErrorMessage(null);
         }}
+        complaintsCount={complaintsCount}
+        onOpenHistory={() => setHistoryModalOpen(true)}
+        onOpenContracts={() => setContractsModalOpen(true)}
       />
 
       <main className="flex-1">
@@ -152,7 +226,7 @@ export default function Home() {
               <div className="flex-1">
                 <span className="font-bold text-white">Live API Communication Alert:</span>
                 <p className="mt-1">{apiErrorMessage}</p>
-                <div className="mt-3 flex items-center gap-3">
+                <div className="mt-3 flex items-center gap-3 flex-wrap">
                   <button
                     type="button"
                     onClick={() => {
@@ -202,7 +276,7 @@ export default function Home() {
               <p className="mt-2 text-xs text-slate-300 max-w-md mx-auto">
                 The live packaging analysis could not be completed because Member 3&apos;s backend did not respond. No simulated fallback data is displayed in Live API Mode.
               </p>
-              <div className="mt-6 flex items-center justify-center gap-4">
+              <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
                 <button
                   type="button"
                   onClick={() => selectedFile && handleImageSelected(selectedFile)}
@@ -239,13 +313,14 @@ export default function Home() {
                 />
               </div>
 
-              {/* Right Column: Compliance Scorecard & Violations Ledger (5 cols) */}
+              {/* Right Column: Compliance Scorecard & Ledger (5 cols) */}
               <div className="lg:col-span-5">
                 <ComplianceResults
                   analysis={analysisResult}
                   selectedViolation={selectedViolation}
                   onSelectViolation={(v) => setSelectedViolation(v)}
                   onOpenComplaintModal={() => setComplaintModalOpen(true)}
+                  onLocateDeclaration={handleLocateDeclaration}
                 />
               </div>
             </div>
@@ -259,8 +334,24 @@ export default function Home() {
           analysis={analysisResult}
           isDemoMode={isDemoMode}
           onClose={() => setComplaintModalOpen(false)}
+          onComplaintSubmitted={() => refreshComplaintsCount()}
         />
       )}
+
+      {/* Consumer Grievance History Modal */}
+      <ComplaintHistoryModal
+        isOpen={historyModalOpen}
+        onClose={() => setHistoryModalOpen(false)}
+        onSelectNewAudit={() => {
+          window.scrollTo({ top: 350, behavior: 'smooth' });
+        }}
+      />
+
+      {/* Module Integration Contracts Modal */}
+      <IntegrationContractsModal
+        isOpen={contractsModalOpen}
+        onClose={() => setContractsModalOpen(false)}
+      />
 
       <Footer />
     </div>

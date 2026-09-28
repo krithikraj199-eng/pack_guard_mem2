@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ZoomIn, ZoomOut, RotateCcw, Crosshair, Info, Activity } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { ZoomIn, ZoomOut, RotateCcw, Crosshair, Info, Activity, Barcode as BarcodeIcon } from 'lucide-react';
 import { AnalysisResult, Violation } from '../services/types';
 
 interface EvidenceViewerProps {
@@ -16,8 +16,15 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
   onSelectViolation,
 }) => {
   const [zoom, setZoom] = useState<number>(1);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [startPan, setStartPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
   const [hoveredBoxId, setHoveredBoxId] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<'ALL' | 'VIOLATIONS_ONLY' | 'COMPLIANT_ONLY'>('ALL');
+  const [crosshairPos, setCrosshairPos] = useState<{ x: number; y: number } | null>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const hasBoxes = analysis.metadata.has_detected_boxes !== false;
 
@@ -26,6 +33,38 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
     if (filterMode === 'COMPLIANT_ONLY') return v.severity === 'COMPLIANT';
     return true;
   });
+
+  // Handle panning when zoomed
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    setIsPanning(true);
+    setStartPan({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    // Update crosshair coordinates
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const xPct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      const yPct = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+      setCrosshairPos({ x: Number(xPct.toFixed(1)), y: Number(yPct.toFixed(1)) });
+    }
+
+    if (!isPanning || zoom <= 1) return;
+    setPanOffset({
+      x: e.clientX - startPan.x,
+      y: e.clientY - startPan.y,
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const resetViewport = () => {
+    setZoom(1);
+    setPanOffset({ x: 0, y: 0 });
+  };
 
   return (
     <div
@@ -39,11 +78,11 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
           <div className="flex items-center gap-2">
             <Crosshair className="h-5 w-5 text-cyan-400" />
             <h3 className="text-base font-bold text-white">
-              Interactive Statutory Evidence Viewport
+              Interactive Compliance Evidence Inspector
             </h3>
           </div>
           <p className="text-xs text-slate-400">
-            Bounding-box annotations localized on packaging surface. Click any region to inspect.
+            Bounding-box coordinates localized on packaging surface. Click any region to inspect.
           </p>
         </div>
 
@@ -63,21 +102,27 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
               <button
                 type="button"
                 onClick={() => setFilterMode('ALL')}
-                className={`px-2.5 py-1 rounded transition ${filterMode === 'ALL' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-400 hover:text-white'}`}
+                className={`px-2.5 py-1 rounded transition ${
+                  filterMode === 'ALL' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-400 hover:text-white'
+                }`}
               >
                 All
               </button>
               <button
                 type="button"
                 onClick={() => setFilterMode('VIOLATIONS_ONLY')}
-                className={`px-2.5 py-1 rounded transition ${filterMode === 'VIOLATIONS_ONLY' ? 'bg-rose-500/20 text-rose-300 font-bold' : 'text-slate-400 hover:text-white'}`}
+                className={`px-2.5 py-1 rounded transition ${
+                  filterMode === 'VIOLATIONS_ONLY' ? 'bg-rose-500/20 text-rose-300 font-bold' : 'text-slate-400 hover:text-white'
+                }`}
               >
-                Violations
+                Issues
               </button>
               <button
                 type="button"
                 onClick={() => setFilterMode('COMPLIANT_ONLY')}
-                className={`px-2.5 py-1 rounded transition ${filterMode === 'COMPLIANT_ONLY' ? 'bg-emerald-500/20 text-emerald-300 font-bold' : 'text-slate-400 hover:text-white'}`}
+                className={`px-2.5 py-1 rounded transition ${
+                  filterMode === 'COMPLIANT_ONLY' ? 'bg-emerald-500/20 text-emerald-300 font-bold' : 'text-slate-400 hover:text-white'
+                }`}
               >
                 Compliant
               </button>
@@ -100,7 +145,13 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
             </span>
             <button
               type="button"
-              onClick={() => setZoom((z) => Math.max(Number((z - 0.25).toFixed(2)), 0.75))}
+              onClick={() => {
+                setZoom((z) => {
+                  const next = Math.max(Number((z - 0.25).toFixed(2)), 0.75);
+                  if (next === 1) setPanOffset({ x: 0, y: 0 });
+                  return next;
+                });
+              }}
               className="p-1 text-slate-300 hover:text-cyan-400 transition"
               title="Zoom Out"
               aria-label="Zoom Out"
@@ -109,10 +160,10 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setZoom(1)}
+              onClick={resetViewport}
               className="p-1 text-slate-300 hover:text-cyan-400 transition"
-              title="Reset Zoom"
-              aria-label="Reset Zoom"
+              title="Reset Zoom & Pan"
+              aria-label="Reset Zoom & Pan"
             >
               <RotateCcw className="h-4 w-4" />
             </button>
@@ -121,27 +172,49 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
       </div>
 
       {/* Main Image Viewport with Precision Responsive Bounding Box Overlays */}
-      <div className="relative mt-4 flex items-center justify-center overflow-auto rounded-xl border border-slate-800 bg-[#070a12] p-4 min-h-[380px] sm:min-h-[440px]">
+      <div
+        ref={containerRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={() => {
+          handleMouseUp();
+          setCrosshairPos(null);
+        }}
+        className={`relative mt-4 flex items-center justify-center overflow-hidden rounded-xl border border-slate-800 bg-[#070a12] p-4 min-h-[380px] sm:min-h-[440px] ${
+          zoom > 1 ? (isPanning ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+        }`}
+      >
         {/* Viewfinder Corner Notches */}
         <div className="pointer-events-none absolute top-2 left-2 h-4 w-4 border-t-2 border-l-2 border-cyan-400 z-10"></div>
         <div className="pointer-events-none absolute top-2 right-2 h-4 w-4 border-t-2 border-r-2 border-cyan-400 z-10"></div>
         <div className="pointer-events-none absolute bottom-2 left-2 h-4 w-4 border-b-2 border-l-2 border-cyan-400 z-10"></div>
         <div className="pointer-events-none absolute bottom-2 right-2 h-4 w-4 border-b-2 border-r-2 border-cyan-400 z-10"></div>
 
+        {/* Live Coordinate Overlay HUD */}
+        {crosshairPos && (
+          <div className="pointer-events-none absolute bottom-3 left-3 z-20 rounded bg-slate-950/80 px-2 py-0.5 font-mono text-[10px] text-cyan-300 border border-white/10">
+            Target: X:{crosshairPos.x}% | Y:{crosshairPos.y}%
+          </div>
+        )}
+
         <div
-          className="relative inline-block transition-transform duration-150 origin-center"
-          style={{ transform: `scale(${zoom})` }}
+          className="relative inline-block transition-transform duration-75 origin-center"
+          style={{
+            transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+          }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={analysis.image_url}
             alt={analysis.product_name}
-            className="block max-h-[460px] w-auto rounded-lg object-contain select-none"
+            className="block max-h-[460px] w-auto rounded-lg object-contain select-none pointer-events-none"
           />
 
           {/* HTML Overlay Coordinate Layer - Perfectly Responsive and Scale-Proof */}
           {hasBoxes && (
             <div className="absolute inset-0 pointer-events-none">
+              {/* Violations Overlays */}
               {filteredViolations.map((v) => {
                 if (!v.bounding_box) return null;
                 const [ymin, xmin, ymax, xmax] = v.bounding_box;
@@ -162,7 +235,6 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
                     ? 'bg-amber-500/20'
                     : 'bg-emerald-500/20';
 
-                // Smart positioning: if box is near top of image, place badge below it
                 const isNearTop = ymin < 0.14;
 
                 return (
@@ -179,7 +251,10 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
                     }}
                     onMouseEnter={() => setHoveredBoxId(v.id)}
                     onMouseLeave={() => setHoveredBoxId(null)}
-                    onClick={() => onSelectViolation(v)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectViolation(v);
+                    }}
                     style={{
                       position: 'absolute',
                       top: `${ymin * 100}%`,
@@ -210,10 +285,10 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
                     >
                       <span style={{ color: borderColor }}>
                         {v.severity === 'CRITICAL'
-                          ? '[NON-COMPLIANT]'
+                          ? '[POTENTIAL ISSUE]'
                           : v.severity === 'WARNING'
-                          ? '[WARNING]'
-                          : '[VERIFIED]'}
+                          ? '[ADVISORY]'
+                          : '[COMPLIANT]'}
                       </span>
                       <span className="ml-1 text-slate-300 font-normal">
                         {v.rule_number}
@@ -222,6 +297,26 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
                   </div>
                 );
               })}
+
+              {/* Barcode Overlay if detected and coordinate provided */}
+              {analysis.barcode?.detected && analysis.barcode.bounding_box && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: `${analysis.barcode.bounding_box[0] * 100}%`,
+                    left: `${analysis.barcode.bounding_box[1] * 100}%`,
+                    width: `${(analysis.barcode.bounding_box[3] - analysis.barcode.bounding_box[1]) * 100}%`,
+                    height: `${(analysis.barcode.bounding_box[2] - analysis.barcode.bounding_box[0]) * 100}%`,
+                  }}
+                  className="pointer-events-auto border-2 border-cyan-400 border-dashed bg-cyan-500/10 rounded transition-all"
+                  title={`Barcode Detected: ${analysis.barcode.format} (${analysis.barcode.raw_value})`}
+                >
+                  <div className="absolute -top-5 left-0 rounded border border-cyan-400 bg-slate-950 px-1.5 py-0.2 text-[9px] font-mono text-cyan-300 flex items-center gap-1 shadow">
+                    <BarcodeIcon className="h-2.5 w-2.5 text-cyan-400" />
+                    <span>{analysis.barcode.format}</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -239,18 +334,22 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({
 
       {/* Legend */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-3 text-xs font-mono text-slate-400">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded border border-rose-500 bg-rose-500/20"></span>
-            Statutory Violation
+            Potential Non-Compliance
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded border border-amber-500 bg-amber-500/20"></span>
-            Statutory Warning
+            Screening Advisory
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded border border-emerald-500 bg-emerald-500/20"></span>
-            Verified Compliant
+            Preliminary Compliant
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded border border-cyan-400 border-dashed bg-cyan-500/10"></span>
+            Barcode Symbol
           </span>
         </div>
         <span className="text-[11px] text-slate-500">

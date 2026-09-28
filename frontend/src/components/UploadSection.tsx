@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
-import { UploadCloud, Camera, Image as ImageIcon, Sparkles, X, AlertCircle } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { UploadCloud, Camera, Image as ImageIcon, Sparkles, X, AlertCircle, RefreshCw, SwitchCamera } from 'lucide-react';
 import { AnalysisResult } from '../services/types';
 import { DEMO_FIXTURES } from '../data/demoFixtures';
 
@@ -30,8 +30,100 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  // Live in-browser camera state
+  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // Stop camera stream cleanly when component unmounts or camera is closed
+  const stopCameraStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCameraStream();
+    };
+  }, []);
+
+  const startCamera = async (mode: 'environment' | 'user' = facingMode) => {
+    setCameraError(null);
+    stopCameraStream();
+    setIsCameraActive(true);
+
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera API is not supported in this browser. Please use the file upload option.');
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: mode,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+      });
+
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.warn('Camera Access Issue:', error);
+      let msg = 'Unable to access packaging camera.';
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        msg = 'Camera permission was denied. Please allow camera permissions in your browser or select an image file.';
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        msg = 'No video camera detected on this system. Please upload a package photo instead.';
+      } else {
+        msg = error.message || 'Camera could not be initialized.';
+      }
+      setCameraError(msg);
+      stopCameraStream();
+    }
+  };
+
+  const closeCamera = () => {
+    stopCameraStream();
+    setIsCameraActive(false);
+    setCameraError(null);
+  };
+
+  const toggleFacingMode = () => {
+    const nextMode = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(nextMode);
+    startCamera(nextMode);
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `package-photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      closeCamera();
+      validateAndProcessFile(file);
+    }, 'image/jpeg', 0.95);
+  };
 
   const validateAndProcessFile = (file: File) => {
     setValidationError(null);
@@ -69,7 +161,6 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
     setPreviewUrl(null);
     setValidationError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
     onReset();
   };
 
@@ -82,7 +173,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
             Packaging Image Inspection Input
           </h2>
           <p className="text-xs text-slate-400">
-            Upload package label, front panel, or mandatory declaration table for statutory audit.
+            Upload package label, front panel, or mandatory declaration table for statutory compliance screening.
           </p>
         </div>
 
@@ -144,14 +235,6 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => handleFiles(e.target.files)}
-        />
 
         {previewUrl ? (
           <div className="relative flex flex-col items-center gap-3">
@@ -173,7 +256,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
               </div>
             )}
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-center">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -183,10 +266,11 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => cameraInputRef.current?.click()}
+                onClick={() => startCamera()}
                 className="flex items-center gap-1.5 rounded-lg border border-white/20 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition"
               >
-                <Camera className="h-3.5 w-3.5 text-cyan-400" /> Retake Photo
+                <Camera className="h-3.5 w-3.5 text-cyan-400" />
+                Live Camera
               </button>
               <button
                 type="button"
@@ -219,7 +303,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => cameraInputRef.current?.click()}
+                onClick={() => startCamera()}
                 className="flex items-center gap-1.5 rounded-lg border border-white/20 bg-slate-800 px-4 py-2 font-mono text-xs font-semibold text-white hover:bg-slate-700 transition"
               >
                 <Camera className="h-3.5 w-3.5 text-cyan-400" />
@@ -229,6 +313,122 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
           </div>
         )}
       </div>
+
+      {/* Live In-Browser Camera Viewfinder Modal */}
+      {isCameraActive && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Package Camera Scanner"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"
+        >
+          <div className="relative w-full max-w-lg rounded-2xl border border-cyan-500/30 bg-slate-950 p-4 shadow-2xl flex flex-col items-center">
+            {/* Header */}
+            <div className="flex items-center justify-between w-full pb-3 border-b border-white/10 mb-3">
+              <div className="flex items-center gap-2">
+                <Camera className="h-4 w-4 text-cyan-400" />
+                <span className="font-mono text-xs font-bold text-white">
+                  Package Label Camera Viewfinder
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={closeCamera}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Error state */}
+            {cameraError ? (
+              <div className="py-8 text-center px-4">
+                <AlertCircle className="mx-auto h-10 w-10 text-rose-400 mb-2" />
+                <p className="text-xs font-mono text-rose-300 mb-4">{cameraError}</p>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => startCamera()}
+                    className="flex items-center gap-1.5 rounded-lg border border-white/20 bg-slate-800 px-3 py-1.5 text-xs text-white hover:bg-slate-700 font-mono"
+                  >
+                    <RefreshCw className="h-3 w-3" /> Retry
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeCamera();
+                      fileInputRef.current?.click();
+                    }}
+                    className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs text-white font-mono hover:bg-cyan-500"
+                  >
+                    Select File Instead
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Live Camera Stream with Package Alignment Frame */
+              <div className="relative w-full overflow-hidden rounded-xl border border-white/15 bg-black">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-72 sm:h-80 object-cover"
+                />
+
+                {/* Viewfinder Target Guides */}
+                <div className="pointer-events-none absolute inset-4 border-2 border-dashed border-cyan-400/70 rounded-lg flex flex-col justify-between p-2">
+                  <div className="flex justify-between text-[10px] font-mono text-cyan-300 bg-black/60 px-1.5 py-0.5 rounded self-start">
+                    Align mandatory declaration panel
+                  </div>
+                  <div className="self-center font-mono text-[10px] text-cyan-400/80 bg-black/50 px-2 py-0.5 rounded">
+                    Ensure text & barcode are legible
+                  </div>
+                </div>
+
+                {/* Corner Accents */}
+                <div className="pointer-events-none absolute top-3 left-3 h-4 w-4 border-t-2 border-l-2 border-cyan-400"></div>
+                <div className="pointer-events-none absolute top-3 right-3 h-4 w-4 border-t-2 border-r-2 border-cyan-400"></div>
+                <div className="pointer-events-none absolute bottom-3 left-3 h-4 w-4 border-b-2 border-l-2 border-cyan-400"></div>
+                <div className="pointer-events-none absolute bottom-3 right-3 h-4 w-4 border-b-2 border-r-2 border-cyan-400"></div>
+              </div>
+            )}
+
+            {/* Shutter & Controls */}
+            {!cameraError && (
+              <div className="mt-4 flex items-center justify-between w-full px-4">
+                <button
+                  type="button"
+                  onClick={toggleFacingMode}
+                  className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-xs font-mono text-slate-300 hover:text-white"
+                  title="Switch between front and back camera"
+                >
+                  <SwitchCamera className="h-4 w-4 text-cyan-400" />
+                  <span className="hidden sm:inline">Flip</span>
+                </button>
+
+                {/* Shutter Button */}
+                <button
+                  type="button"
+                  onClick={capturePhoto}
+                  className="flex items-center gap-2 rounded-full border-2 border-cyan-400 bg-cyan-500/20 px-6 py-2.5 font-mono text-xs font-bold text-white shadow-[0_0_20px_rgba(0,240,255,0.4)] hover:bg-cyan-500/30 transition transform active:scale-95"
+                >
+                  <div className="h-3 w-3 rounded-full bg-cyan-400 animate-ping"></div>
+                  <span>Capture Frame</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={closeCamera}
+                  className="rounded-lg border border-white/15 px-3 py-2 text-xs font-mono text-slate-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
